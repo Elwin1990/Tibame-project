@@ -2,36 +2,23 @@ import cv2, json, pygame, time
 import mediapipe as mp
 import numpy as np
 
-mp_drawing = mp.solutions.drawing_utils
-mp_pose = mp.solutions.pose
-
-mp_drawing_styles = mp.solutions.drawing_styles
-
 path = 'demo4'
 
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
-dic={'LEFTELBOW':[],
-'RIGHTELBOW':[],
-'LEFTSHOULDER':[],
-'RIGHTSHOULDER':[],
-'LEFTHIP':[],
-'RIGHTHIP':[],
-'LEFTKNEE':[],
-'RIGHTKNEE':[]
-}
-DIC={'LEFTELBOW':[],
-'RIGHTELBOW':[],
-'LEFTSHOULDER':[],
-'RIGHTSHOULDER':[],
-'LEFTHIP':[],
-'RIGHTHIP':[],
-'LEFTKNEE':[],
-'RIGHTKNEE':[]
-}
+mp_drawing_styles = mp.solutions.drawing_styles
+
+points = ['LEFTELBOW', 'RIGHTELBOW', 'LEFTSHOULDER', 'RIGHTSHOULDER', 'LEFTHIP', 'RIGHTHIP', 'LEFTKNEE', 'RIGHTKNEE']
+count_score = [0,0,0,0,0]   # excellent, great, good, bad, terrible
+
+dic = dict()
+DIC = dict()
+for x in points:
+    dic[x] = []
 
 # 分數的list
-list=[0]
+# list=[0]
+total_score = 0
 i = 0
 
 
@@ -50,76 +37,66 @@ def calculate_angle(a,b,c):
     return angle
 
 
-    # 算分數
-def angle_diff(x, y):
-    if x != None and y != None:
-        return abs(x-y)
-    else:
-        return None
-
-def mean(list):
-    i = 0
-    total = 0
-    for x in list:
-        if x != None:
-            total += x
-            i += 1
-    return int(x/i)
 
 def score(i):
-    # 各部位角度差之總和
-    Difference = abs(int(DIC['LEFTELBOW'][i])     - int(dic['LEFTELBOW'][i])) \
-               + abs(int(DIC['RIGHTELBOW'][i])    - int(dic['RIGHTELBOW'][i])) \
-               + abs(int(DIC['LEFTSHOULDER'][i])  - int(dic['LEFTSHOULDER'][i])) \
-               + abs(int(DIC['RIGHTSHOULDER'][i]) - int(dic['RIGHTSHOULDER'][i])) \
-               + abs(int(DIC['LEFTHIP'][i])       - int(dic['LEFTHIP'][i])) \
-               + abs(int(DIC['RIGHTHIP'][i])      - int(dic['RIGHTHIP'][i])) \
-               + abs(int(DIC['LEFTKNEE'][i])      - int(dic['LEFTKNEE'][i])) \
-               + abs(int(DIC['RIGHTKNEE'][i])     - int(dic['RIGHTKNEE'][i])) 
-    
-    # 
-    if Difference <= 70:
-        list.append(int(list[i])+5)
-        return list[i]
-                                     
-    elif Difference <= 140:
-        list.append(int(list[i])+3)
-        return list[i]
-          
-    elif Difference <= 200:
-        list.append(int(list[i])+1) 
-        return list[i]
-    else:
-        list.append(int(list[i])+0)
-        return list[i]
+    # 各部位角度差之平均
+    Difference = 0
+    count = 0
+    anser = 0
+    for x in points:
+        try:
+            Difference += abs(int(DIC[x]) - int(dic[x][i]))
+            count += 1
+        except:
+            pass
+    if count == 0:
+        return anser
+    mean_angle = Difference/count
+    if mean_angle <= 10:
+        anser = 5
+    elif mean_angle <= 20:
+        anser = 4
+    elif mean_angle <= 30:
+        anser = 3
+    elif mean_angle <= 40:
+        anser = 2
+    elif mean_angle <= 50:
+        anser = 1
+    return anser
+
 
 def judgement(i):
-    difference = abs(int(DIC['LEFTELBOW'][i])     - int(dic['LEFTELBOW'][i])) \
-               + abs(int(DIC['RIGHTELBOW'][i])    - int(dic['RIGHTELBOW'][i])) \
-               + abs(int(DIC['LEFTSHOULDER'][i])  - int(dic['LEFTSHOULDER'][i])) \
-               + abs(int(DIC['RIGHTSHOULDER'][i]) - int(dic['RIGHTSHOULDER'][i])) \
-               + abs(int(DIC['LEFTHIP'][i])       - int(dic['LEFTHIP'][i])) \
-               + abs(int(DIC['RIGHTHIP'][i])      - int(dic['RIGHTHIP'][i])) \
-               + abs(int(DIC['LEFTKNEE'][i])      - int(dic['LEFTKNEE'][i])) \
-               + abs(int(DIC['RIGHTKNEE'][i])     - int(dic['RIGHTKNEE'][i]))
-
-    if difference <= 100:
-        return    'Marvelous'
-          
-                      
-    elif difference <= 200:
-        return    'Perfect'
-          
-    elif difference <= 300:
-        return    'Good'
-          
+    Difference = 0
+    count = 0
+    for x in points:
+        try:
+            Difference += abs(int(DIC[x]) - int(dic[x][i]))
+            count += 1
+        except:
+            pass
+    if count == 0:
+        return 'Unknown'
+    mean_angle = Difference/count
+    if mean_angle <= 10:
+        count_score[0] += 1
+        return 'Excellent'
+    elif mean_angle <= 20:
+        count_score[1] += 1
+        return 'Great'
+    elif mean_angle <= 30:
+        count_score[2] += 1
+        return 'Good'
+    elif mean_angle <= 50:
+        count_score[3] += 1
+        return 'Bad'
     else:
-        return   'Bad'
-
+        count_score[4] += 1
+        return 'Terrible'
 
 
 # 內容為: 將照片預測節點後，算出8個角度
 def Detect(frame):
+    global total_score
     # Recolor image to RGB
     Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     Image.flags.writeable = False
@@ -188,92 +165,78 @@ def Detect(frame):
 
     # Calculate angle
     try:
-        LEFTELBOW_angle = calculate_angle(LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST)
+        DIC['LEFTELBOW'] = calculate_angle(LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST)
     except:
-        pass
+        DIC['LEFTELBOW'] = None
     try:
-        RIGHTELBOW_angle = calculate_angle(RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST)
+        DIC['RIGHTELBOW'] = calculate_angle(RIGHT_SHOULDER, RIGHT_ELBOW, RIGHT_WRIST)
     except:
-        pass
+        DIC['RIGHTELBOW'] = None
     try:
-        LEFTSHOULDER_angle = calculate_angle(LEFT_ELBOW, LEFT_SHOULDER, LEFT_HIP)
+        DIC['LEFTSHOULDER'] = calculate_angle(LEFT_ELBOW, LEFT_SHOULDER, LEFT_HIP)
     except:
-        pass
+        DIC['LEFTSHOULDER'] = None
     try:
-        RIGHTSHOULDER_angle = calculate_angle(RIGHT_ELBOW, RIGHT_SHOULDER, RIGHT_HIP)
+        DIC['RIGHTSHOULDER'] = calculate_angle(RIGHT_ELBOW, RIGHT_SHOULDER, RIGHT_HIP)
     except:
-        pass
+        DIC['RIGHTSHOULDER'] = None
     try:
-        LEFTHIP_angle = calculate_angle(LEFT_SHOULDER, LEFT_HIP, LEFT_KNEE)
+        DIC['LEFTHIP'] = calculate_angle(LEFT_SHOULDER, LEFT_HIP, LEFT_KNEE)
     except:
-        pass
+        DIC['LEFTHIP'] = None
     try:
-        RIGHTHIP_angle = calculate_angle(RIGHT_SHOULDER, RIGHT_HIP, RIGHT_KNEE)
+        DIC['RIGHTHIP'] = calculate_angle(RIGHT_SHOULDER, RIGHT_HIP, RIGHT_KNEE)
     except:
-        pass
+        DIC['RIGHTHIP'] = None
     try:
-        LEFTKNEE_angle = calculate_angle(LEFT_HIP, LEFT_KNEE, LEFT_ANKLE)
+        DIC['LEFTKNEE'] = calculate_angle(LEFT_HIP, LEFT_KNEE, LEFT_ANKLE)
     except:
-        pass
+        DIC['LEFTKNEE'] = None
     try:
-        RIGHTKNEE_angle = calculate_angle(RIGHT_HIP, RIGHT_KNEE, RIGHT_ANKLE)
+        DIC['RIGHTKNEE'] = calculate_angle(RIGHT_HIP, RIGHT_KNEE, RIGHT_ANKLE)
     except:
-        pass
+        DIC['RIGHTKNEE'] = None
         
-    try:
-        DIC['LEFTELBOW'].append(LEFTELBOW_angle)
-    except:
-        DIC['LEFTELBOW'].append(0)
-
-    try:
-        DIC['RIGHTELBOW'].append(RIGHTELBOW_angle)
-    except:
-        DIC['RIGHTELBOW'].append(0)
-
-    try:
-        DIC['LEFTSHOULDER'].append(LEFTSHOULDER_angle)
-    except:
-        DIC['LEFTSHOULDER'].append(0)
-
-    try:           
-        DIC['RIGHTSHOULDER'].append(RIGHTSHOULDER_angle)
-    except:
-        DIC['RIGHTSHOULDER'].append(0)
-
-    try:
-        DIC['LEFTHIP'].append(LEFTHIP_angle)
-    except:
-        DIC['LEFTHIP'].append(0)
-
-    try:
-        DIC['RIGHTHIP'].append(RIGHTHIP_angle)
-    except:
-        DIC['RIGHTHIP'].append(0)
-
-    try:
-        DIC['LEFTKNEE'].append(LEFTKNEE_angle)
-    except:
-        DIC['LEFTKNEE'].append(0)
-
-    try:
-        DIC['RIGHTKNEE'].append(RIGHTKNEE_angle)
-    except:
-        DIC['RIGHTKNEE'].append(0)
     
     
     
-    i = len(DIC['LEFTELBOW'])-1
+    
+    # i = len(DIC['LEFTELBOW'])-1
+    try:
+        LEFTELBOW =  abs(int(DIC['LEFTELBOW']) - int(dic['LEFTELBOW'][i]))
+    except:
+        LEFTELBOW = None
+    try:
+        RIGHTELBOW =  abs(int(DIC['RIGHTELBOW']) - int(dic['RIGHTELBOW'][i]))
+    except:
+        RIGHTELBOW = None
+    try:
+        LEFTSHOULDER =  abs(int(DIC['LEFTSHOULDER']) - int(dic['LEFTSHOULDER'][i]))
+    except:
+        LEFTSHOULDER = None
+    try:
+        RIGHTSHOULDER =  abs(int(DIC['RIGHTSHOULDER']) - int(dic['RIGHTSHOULDER'][i]))
+    except:
+        RIGHTSHOULDER = None
+    try:
+        LEFTHIP =  abs(int(DIC['LEFTHIP']) - int(dic['LEFTHIP'][i]))
+    except:
+        LEFTHIP = None
+    try:
+        RIGHTHIP =  abs(int(DIC['RIGHTHIP']) - int(dic['RIGHTHIP'][i]))
+    except:
+        RIGHTHIP = None
+    try:
+        LEFTKNEE =  abs(int(DIC['LEFTKNEE']) - int(dic['LEFTKNEE'][i]))
+    except:
+        LEFTKNEE = None
+    try:
+        RIGHTKNEE =  abs(int(DIC['RIGHTKNEE']) - int(dic['RIGHTKNEE'][i]))
+    except:
+        RIGHTKNEE = None
 
-    LEFTELBOW =  abs(int(DIC['LEFTELBOW'][i]) - int(dic['LEFTELBOW'][i]))
-    RIGHTELBOW =  abs(int(DIC['RIGHTELBOW'][i]) - int(dic['RIGHTELBOW'][i]))
-    LEFTSHOULDER =  abs(int(DIC['LEFTSHOULDER'][i]) - int(dic['LEFTSHOULDER'][i]))
-    RIGHTSHOULDER =  abs(int(DIC['RIGHTSHOULDER'][i]) - int(dic['RIGHTSHOULDER'][i]))
-    LEFTHIP =  abs(int(DIC['LEFTHIP'][i]) - int(dic['LEFTHIP'][i]))
-    RIGHTHIP =  abs(int(DIC['RIGHTHIP'][i]) - int(dic['RIGHTHIP'][i]))
-    LEFTKNEE =  abs(int(DIC['LEFTKNEE'][i]) - int(dic['LEFTKNEE'][i]))
-    RIGHTKNEE =  abs(int(DIC['RIGHTKNEE'][i]) - int(dic['RIGHTKNEE'][i]))
 
-    total_score = score(i)
+    total_score += score(i)
           
 
 
@@ -327,9 +290,40 @@ def Detect(frame):
         
         cv2.putText(Image, str(total_score), 
                 (30,450), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 2, cv2.LINE_AA)
-        cv2.imshow('Mediapipe Feed', Image)
+
+        # for c, x in enumerate(points):
+        #     if DIC[x] == None:
+        #         ll = 'None'
+        #     else:
+        #         ll = str(int(DIC[x]))
+        #     cv2.putText(Image, ll, (20, 80+c*40), 
+        #                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
+        # for c, x in enumerate(points):
+        #     if dic[x][i] == None:
+        #         ll = 'None'
+        #     else:
+        #         ll = str(int(dic[x][i]))
+        #     cv2.putText(Image, ll, (90, 80+c*40), 
+        #                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
+
+
+        cv2.imshow('Webcam', Image)
     except:
-        cv2.imshow('Mediapipe Feed', Image)
+        # for c, x in enumerate(points):
+        #     if DIC[x] == None:
+        #         ll = 'None'
+        #     else:
+        #         ll = str(int(DIC[x]))
+        #     cv2.putText(Image, ll, (20, 80+c*40), 
+        #                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
+        # for c, x in enumerate(points):
+        #     if dic[x][i] == None:
+        #         ll = 'None'
+        #     else:
+        #         ll = str(int(dic[x][i]))
+        #     cv2.putText(Image, ll, (90, 80+c*40), 
+        #                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.imshow('Webcam', Image)
 
 
 
@@ -351,7 +345,9 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
     while Cap.isOpened() or cap.isopened():
         if cap.get(1) / cap.get(5) > time.time()-t:
             time.sleep(0.04)
-
+        if cap.get(1) / cap.get(5) < time.time()-t-0.04:
+            i += 1
+            cap.set(1, cap.get(1)+1)
         if frame_num == len(dic['LEFTELBOW']):
             break
         retval, frame = Cap.read()
@@ -383,5 +379,15 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
 pygame.mixer.music.stop()
 cv2.destroyWindow('Video')
 Cap.release()
-cv2.waitKey(0)
+# cv2.waitKey(0)
 cv2.destroyAllWindows()
+end_img = cv2.imread('score.jpg')
+totoal_count_score = sum(count_score)
+cv2.putText(end_img, str(total_score), (404, 220), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
+cv2.putText(end_img, str(int(100*count_score[0]/totoal_count_score)) + ' %', (404, 284), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
+cv2.putText(end_img, str(int(100*count_score[1]/totoal_count_score)) + ' %', (404, 330), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
+cv2.putText(end_img, str(int(100*count_score[2]/totoal_count_score)) + ' %', (404, 377), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
+cv2.putText(end_img, str(int(100*count_score[3]/totoal_count_score)) + ' %', (404, 419), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
+cv2.putText(end_img, str(int(100*count_score[4]/totoal_count_score)) + ' %', (404, 462), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
+cv2.imshow('summarize', end_img)
+cv2.waitKey(0)
