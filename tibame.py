@@ -356,7 +356,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         if retval == True:
             frame = cv2.flip(frame, 1)
             Detect(frame)
-            cv2.imshow('Video',frame1)
+            cv2.imshow('Video', frame1)
             if switch == False:
                 switch = True
                 pygame.mixer.music.play(0)
@@ -376,7 +376,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
         if cv2.waitKey(4) & 0xFF == 27:
             
             break
-pygame.mixer.music.stop()
+# pygame.mixer.music.stop()
 cv2.destroyWindow('Video')
 Cap.release()
 # cv2.waitKey(0)
@@ -390,4 +390,5 @@ cv2.putText(end_img, str(int(100*count_score[2]/totoal_count_score)) + ' %', (40
 cv2.putText(end_img, str(int(100*count_score[3]/totoal_count_score)) + ' %', (404, 419), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
 cv2.putText(end_img, str(int(100*count_score[4]/totoal_count_score)) + ' %', (404, 462), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1, cv2.LINE_AA)
 cv2.imshow('summarize', end_img)
+cv2.imwrite('score_output.jpg', end_img, [cv2.IMWRITE_JPEG_QUALITY, 100])
 cv2.waitKey(0)
